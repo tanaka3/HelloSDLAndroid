@@ -36,6 +36,7 @@ import com.smartdevicelink.proxy.rpc.enums.AppHMIType;
 import com.smartdevicelink.proxy.rpc.enums.FileType;
 import com.smartdevicelink.proxy.rpc.enums.HMILevel;
 import com.smartdevicelink.proxy.rpc.enums.Language;
+import com.smartdevicelink.proxy.rpc.enums.PRNDL;
 import com.smartdevicelink.proxy.rpc.enums.PredefinedLayout;
 import com.smartdevicelink.proxy.rpc.enums.PredefinedWindows;
 import com.smartdevicelink.proxy.rpc.enums.Result;
@@ -63,7 +64,7 @@ public class SdlService extends Service {
 	private static final int FOREGROUND_SERVICE_ID = 111;
 
 	//Manticoreで指定されるポート番号を設定します
-	private static final int TCP_PORT = 12749;
+	private static final int TCP_PORT = 15649;
 	private static final String DEV_MACHINE_IP_ADDRESS = "m.sdl.tools";
 
 	// variable to create and call functions of the SyncProxy
@@ -194,7 +195,20 @@ public class SdlService extends Service {
 										Log.i(TAG, "ScreenManager update complete: " + success);
 									}
 								});
+							}
 
+							PRNDL prndl = vehicleData.getPrndl();
+							if(prndl != null){
+								sdlManager.getScreenManager().beginTransaction();
+								sdlManager.getScreenManager().setTextField4(prndl.name());
+
+								//画面の設定を完了する
+								sdlManager.getScreenManager().commit(new CompletionListener() {
+									@Override
+									public void onComplete(boolean success) {
+										Log.i(TAG, "ScreenManager update complete: " + success);
+									}
+								});
 							}
 						}
 					});
@@ -274,7 +288,10 @@ public class SdlService extends Service {
 				sdlManager.getScreenManager().beginTransaction();
 
 				sdlManager.getScreenManager().setTextField1("Speed");
-				sdlManager.getScreenManager().setTextField2("--- km/h");
+				sdlManager.getScreenManager().setTextField3("--- km/h");
+
+				sdlManager.getScreenManager().setTextField2("PRNDL");
+				sdlManager.getScreenManager().setTextField4("-----");
 
 				//右側の画像を設定する
 				SdlArtwork artwork = new SdlArtwork("artwork01.png", FileType.GRAPHIC_PNG, R.drawable.artwork01, true);
@@ -352,10 +369,50 @@ public class SdlService extends Service {
 					}
 				});
 
-				//ボタンを登録する
-				List<SoftButtonObject> buttons = Arrays.asList(textButtonObject, iconButtonObject);
-				sdlManager.getScreenManager().setSoftButtonObjects(buttons);
 
+				//三つ目のボタン（アイコン＋テキストを設定する（
+				SdlArtwork artwrokIconText = new SdlArtwork("ic_message.png", FileType.GRAPHIC_PNG, R.drawable.ic_message, true);
+				SoftButtonState iconTextState = new SoftButtonState("icontext_button", null, artwrokIconText);
+				//ボタンを作成する
+				SoftButtonObject iconTextButtonObject = new SoftButtonObject(iconTextState.getName(), iconTextState, new SoftButtonObject.OnEventListener() {
+					/**
+					 * ボタンが押された場合の処理
+					 * @param softButtonObject
+					 * @param onButtonPress
+					 */
+					@Override
+					public void onPress(SoftButtonObject softButtonObject, OnButtonPress onButtonPress) {
+						alert("Hello S D L Android");
+					}
+
+					@Override
+					public void onEvent(SoftButtonObject softButtonObject, OnButtonEvent onButtonEvent) {
+					}
+				});
+
+				//四つ目のボタン（トグル式）
+				SoftButtonState highlightOnState= new SoftButtonState("highlighton_button", "ON", null);
+				highlightOnState.setHighlighted(true);
+				SoftButtonState highlightOffState = new SoftButtonState("highlightoff_button", "OFF", null);
+				highlightOffState.setHighlighted(false);
+
+				SoftButtonObject highlightButtonObject = new SoftButtonObject("highlight_button",
+						Arrays.asList(highlightOnState, highlightOffState), highlightOnState.getName(), new SoftButtonObject.OnEventListener() {
+					@Override
+					public void onPress(SoftButtonObject softButtonObject, OnButtonPress onButtonPress) {
+						softButtonObject.transitionToNextState();
+					}
+
+					@Override
+					public void onEvent(SoftButtonObject softButtonObject, OnButtonEvent onButtonEvent) {
+
+					}
+				});
+
+
+				//ボタンを登録する
+				List<SoftButtonObject> buttons = Arrays.asList(textButtonObject, iconButtonObject, iconTextButtonObject, highlightButtonObject);
+				sdlManager.getScreenManager().setSoftButtonObjects(buttons);
 			}
 
 			/**
@@ -382,6 +439,7 @@ public class SdlService extends Service {
 
 		//データを取得したい項目を設定します。
 		vdRequest.setSpeed(true);	//速度
+		vdRequest.setPrndl(true);	//シフトレバーの状態
 
 		//データの取得を行います。
 		vdRequest.setOnRPCResponseListener(new OnRPCResponseListener() {
@@ -395,7 +453,9 @@ public class SdlService extends Service {
 
 					sdlManager.getScreenManager().beginTransaction();
 					String speed = String.format("%.02f km/h", getVehicleData.getSpeed());
-					sdlManager.getScreenManager().setTextField2(speed);
+					sdlManager.getScreenManager().setTextField3(speed);
+
+					sdlManager.getScreenManager().setTextField4(getVehicleData.getPrndl().name());
 
 					//画面の設定を完了する
 					sdlManager.getScreenManager().commit(new CompletionListener() {
@@ -425,6 +485,7 @@ public class SdlService extends Service {
 
 		//定期的にデータを取得したい項目を設定します。
 		subscribeRequest.setSpeed(true);		//エンジン回転数
+		subscribeRequest.setPrndl(true);		//シフトレバーの状態
 
 		//定期受信の登録を行います
 		subscribeRequest.setOnRPCResponseListener(new OnRPCResponseListener() {
