@@ -186,7 +186,7 @@ public class SdlService extends Service {
 							if(vehicleData_speed != null){
 								sdlManager.getScreenManager().beginTransaction();
 								String speed = String.format("%.02f km/h", vehicleData_speed);
-								sdlManager.getScreenManager().setTextField2(speed);
+								sdlManager.getScreenManager().setTextField3(speed);
 
 								//画面の設定を完了する
 								sdlManager.getScreenManager().commit(new CompletionListener() {
